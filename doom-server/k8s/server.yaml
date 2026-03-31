@@ -131,6 +131,22 @@ spec:
             limits:
               memory: "128Mi"
               cpu: "200m"
+        - name: healthcheck
+          image: alpine:latest
+          command:
+            - sh
+            - -c
+            - "while true; do echo -e 'HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nok' | nc -l -p 8080; done"
+          ports:
+            - containerPort: 8080
+              protocol: TCP
+          resources:
+            requests:
+              memory: "8Mi"
+              cpu: "5m"
+            limits:
+              memory: "16Mi"
+              cpu: "10m"
       volumes:
         - name: wads
           emptyDir: {}
@@ -147,6 +163,8 @@ metadata:
     service.beta.kubernetes.io/aws-load-balancer-type: "external"
     service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: "ip"
     service.beta.kubernetes.io/aws-load-balancer-scheme: "internet-facing"
+    service.beta.kubernetes.io/aws-load-balancer-healthcheck-port: "8080"
+    service.beta.kubernetes.io/aws-load-balancer-healthcheck-protocol: "TCP"
 spec:
   type: LoadBalancer
   selector:
