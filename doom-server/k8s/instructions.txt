@@ -1,0 +1,12 @@
+#README
+
+To change maps later, edit the ConfigMap and restart:
+
+bashkubectl edit configmap doom-config -n doom
+kubectl rollout restart deployment doom-server -n doom
+
+Deploy it:
+
+bashkubectl apply -f ~/projects/doom-server/k8s/namespace.yaml
+kubectl apply -f ~/projects/doom-server/k8s/server.yaml
+kubectl get pods -n doom -w

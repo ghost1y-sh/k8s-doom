@@ -1,0 +1,157 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: doom-config
+  namespace: doom
+data:
+  server.cfg: |
+    set sv_hostname "ghost1y's Doom 2 Server"
+    set sv_maxplayers 8
+    set sv_maxclients 8
+    set sv_broadcast 0
+    set sv_updatemaster 1
+    set sv_enforcemasterbanlist true
+    set sv_markchatlines true
+    set masterhostname "master.zandronum.com:15300"
+
+    // Game mode (uncomment one)
+    set deathmatch 1
+    // set cooperative 1
+    // set teamplay 1
+    // set ctf 1
+    // set domination 1
+    // set possession 1
+
+    // Game settings
+    set fraglimit 30
+    // set timelimit 10
+    set skill 3
+    set teamdamage 0
+    // set sv_forcepassword "yourpassword"
+    // set sv_motd "Welcome to ghost1y's server"
+
+    // Skill levels: 1=ITYTD, 2=HNTR, 3=HMP, 4=UV, 5=Nightmare
+    // set skill 1
+    // set skill 2
+    // set skill 4
+    // set skill 5
+
+    set sv_maprotation true
+    set sv_randommaprotation 0
+    set sv_samelevel false
+
+    // Active map rotation
+    addmap MAP07
+    addmap MAP08
+
+    // Additional maps (uncomment to add)
+    // addmap MAP01    // Entryway
+    // addmap MAP02    // Underhalls
+    // addmap MAP03    // The Gantlet
+    // addmap MAP04    // The Focus
+    // addmap MAP05    // The Waste Tunnels
+    // addmap MAP06    // The Crusher
+    // addmap MAP09    // The Pit
+    // addmap MAP10    // Refueling Base
+    // addmap MAP11    // Circle of Death
+    // addmap MAP12    // The Factory
+    // addmap MAP13    // Downtown
+    // addmap MAP14    // The Inmost Dens
+    // addmap MAP15    // Industrial Zone
+    // addmap MAP16    // Suburbs
+    // addmap MAP17    // Tenements
+    // addmap MAP18    // The Courtyard
+    // addmap MAP19    // The Citadel
+    // addmap MAP20    // Gotcha!
+    // addmap MAP21    // Nirvana
+    // addmap MAP22    // The Catacombs
+    // addmap MAP23    // Barrels o' Fun
+    // addmap MAP24    // The Chasm
+    // addmap MAP25    // Bloodfalls
+    // addmap MAP26    // The Abandoned Mines
+    // addmap MAP27    // Monster Condo
+    // addmap MAP28    // The Spirit World
+    // addmap MAP29    // The Living End
+    // addmap MAP30    // Icon of Sin
+    // addmap MAP31    // Wolfenstein (secret)
+    // addmap MAP32    // Grosse (secret)
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: doom-server
+  namespace: doom
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: doom-server
+  template:
+    metadata:
+      labels:
+        app: doom-server
+    spec:
+      initContainers:
+        - name: download-wad
+          image: alpine:latest
+          command:
+            - sh
+            - -c
+            - |
+              apk add --no-cache curl unzip &&
+              curl -L -o /tmp/freedoom.zip https://github.com/freedoom/freedoom/releases/download/v0.13.0/freedoom-0.13.0.zip &&
+              unzip /tmp/freedoom.zip -d /tmp/freedoom &&
+              cp /tmp/freedoom/freedoom-0.13.0/freedoom2.wad /data/freedoom2.wad &&
+              echo "Freedoom2 WAD downloaded successfully"
+          volumeMounts:
+            - name: wads
+              mountPath: /data
+      containers:
+        - name: doom
+          image: rcdailey/zandronum-server:latest
+          ports:
+            - containerPort: 10666
+              protocol: UDP
+          volumeMounts:
+            - name: wads
+              mountPath: /data
+            - name: config
+              mountPath: /configs
+          args:
+            - "-iwad"
+            - "/data/freedoom2.wad"
+            - "-port"
+            - "10666"
+            - "+exec"
+            - "/configs/server.cfg"
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "50m"
+            limits:
+              memory: "128Mi"
+              cpu: "200m"
+      volumes:
+        - name: wads
+          emptyDir: {}
+        - name: config
+          configMap:
+            name: doom-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: doom-service
+  namespace: doom
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-type: "external"
+    service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: "ip"
+    service.beta.kubernetes.io/aws-load-balancer-scheme: "internet-facing"
+spec:
+  type: LoadBalancer
+  selector:
+    app: doom-server
+  ports:
+    - port: 10666
+      targetPort: 10666
+      protocol: UDP
