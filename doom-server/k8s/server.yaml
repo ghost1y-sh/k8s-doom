@@ -108,7 +108,7 @@ spec:
               mountPath: /data
       containers:
         - name: doom
-          image: rcdailey/zandronum-server:latest
+          image: rcdailey/zandronum-server:official-latest
           ports:
             - containerPort: 10666
               protocol: UDP
